@@ -1,7 +1,7 @@
 FROM postgres:11.2-alpine
 LABEL maintainer "EGA System Developers"
 
-ENV SSL_SUBJ             /C=ES/ST=Spain/L=Barcelona/O=CRG/OU=SysDevs/CN=LocalEGA/emailAddress=all.ega@crg.eu
+ENV SSL_SUBJ             /C=ES/ST=Spain/L=Barcelona/O=CRG/OU=SysDevs/CN=LocalEGA/emailAddress=dev.ega@crg.eu
 ENV TZ                   Europe/Madrid
 ENV PGDATA               /ega/data
 
