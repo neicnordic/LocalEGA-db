@@ -8,13 +8,18 @@ if [ "$(id -u)" = '0' ]; then
     chown -R postgres "$PGDATA"
     chmod 700 "$PGDATA"
 
-    # Generating the SSL certificate + key
-    openssl req -x509 -newkey rsa:2048 \
-	    -keyout /etc/ega/pg.key -nodes \
-	    -out /etc/ega/pg.cert -sha256 \
-	    -days 1000 -subj ${SSL_SUBJ}
-    chown postgres:postgres /etc/ega/pg.{key,cert}
-    chmod 600 /etc/ega/pg.key
+    if [ ! -e /etc/ega/pg.cert ] || [ ! -e /etc/ega/pg.key ]; then
+	# Generating the SSL certificate + key
+	openssl req -x509 -newkey rsa:2048 \
+		-keyout /etc/ega/pg.key -nodes \
+		-out /etc/ega/pg.cert -sha256 \
+		-days 1000 -subj ${SSL_SUBJ}
+	chown postgres:postgres /etc/ega/pg.{key,cert}
+	chmod 600 /etc/ega/pg.key
+    else
+	# Otherwise use the injected ones.
+	echo "Using the injected certificate/privatekey pair" 
+    fi
 
     # Run again as 'postgres'
     exec su-exec postgres "$BASH_SOURCE" "$@"
