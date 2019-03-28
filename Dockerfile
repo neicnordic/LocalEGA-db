@@ -1,5 +1,13 @@
 FROM postgres:11.2-alpine
+
+ARG BUILD_DATE
+ARG SOURCE_COMMIT
+
 LABEL maintainer "EGA System Developers"
+LABEL org.label-schema.schema-version="1.0"
+LABEL org.label-schema.build-date=$BUILD_DATE
+LABEL org.label-schema.vcs-url="https://github.com/EGA-archive/LocalEGA-db"
+LABEL org.label-schema.vcs-ref=$SOURCE_COMMIT
 
 ENV SSL_SUBJ             /C=ES/ST=Spain/L=Barcelona/O=CRG/OU=SysDevs/CN=LocalEGA/emailAddress=dev.ega@crg.eu
 ENV TZ                   Europe/Madrid
