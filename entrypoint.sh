@@ -14,12 +14,13 @@ if [ "$(id -u)" = '0' ]; then
 		-keyout /etc/ega/pg.key -nodes \
 		-out /etc/ega/pg.cert -sha256 \
 		-days 1000 -subj ${SSL_SUBJ}
-	chown postgres:postgres /etc/ega/pg.{key,cert}
-	chmod 600 /etc/ega/pg.key
     else
 	# Otherwise use the injected ones.
 	echo "Using the injected certificate/privatekey pair" 
     fi
+    # Fixing the ownership and permissions
+    chown postgres:postgres /etc/ega/pg.{key,cert}
+    chmod 600 /etc/ega/pg.key
 
     # Run again as 'postgres'
     exec su-exec postgres "$BASH_SOURCE" "$@"
