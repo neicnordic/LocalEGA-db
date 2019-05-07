@@ -89,7 +89,7 @@ local  	 all  	    all	      		     scram-sha-256
 hostssl  all 	    all       127.0.0.1/32   scram-sha-256
 hostssl  all  	    all       ::1/128        scram-sha-256
 # Note: For the moment, not very network-separated :-p
-hostssl  all  	    all       all            scram-sha-256
+hostssl  all  	    all       all            scram-sha-256   clientcert=1
 EOF
 
 echo
