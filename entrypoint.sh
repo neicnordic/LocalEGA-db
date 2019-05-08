@@ -2,26 +2,34 @@
 set -Eeo pipefail
 # TODO swap to -Eeuo pipefail above (after handling all potentially-unset variables)
 
+# Default paths
+PG_CERTFILE=${PG_CERTFILE:-/etc/ega/pg.cert}
+PG_KEYFILE=${PG_KEYFILE:-/etc/ega/pg.key}
+PG_CACERTFILE=${PG_CACERTFILE:-/etc/ega/CA.cert}
+PG_VERIFY_PEER=${PG_VERIFY_PEER:-1}
+
 if [ "$(id -u)" = '0' ]; then
     # When root
     mkdir -p "$PGDATA"
     chown -R postgres "$PGDATA"
     chmod 700 "$PGDATA"
 
-    if [ ! -e /etc/ega/pg.cert ] || [ ! -e /etc/ega/pg.key ]; then
+    if [ ! -e "${PG_CERTFILE}" ] || [ ! -e "${PG_KEYFILE}" ]; then
 	# Generating the SSL certificate + key
 	openssl req -x509 -newkey rsa:2048 \
-		-keyout /etc/ega/pg.key -nodes \
-		-out /etc/ega/pg.cert -sha256 \
+		-keyout "${PG_KEYFILE}" -nodes \
+		-out "${PG_CERTFILE}" -sha256 \
 		-days 1000 -subj ${SSL_SUBJ}
     else
 	# Otherwise use the injected ones.
 	echo "Using the injected certificate/privatekey pair" 
     fi
     # Fixing the ownership and permissions
-    chown postgres:postgres /etc/ega/pg.{key,cert}
-    chmod 600 /etc/ega/pg.key
+    chown postgres:postgres "${PG_KEYFILE}" "${PG_CERTFILE}"
+    chmod 600 "${PG_KEYFILE}"
 
+    chown postgres:postgres /etc/ega/pg.conf
+    
     # Run again as 'postgres'
     exec su-exec postgres "$BASH_SOURCE" "$@"
 fi
@@ -89,8 +97,22 @@ local  	 all  	    all	      		     scram-sha-256
 hostssl  all 	    all       127.0.0.1/32   scram-sha-256
 hostssl  all  	    all       ::1/128        scram-sha-256
 # Note: For the moment, not very network-separated :-p
-hostssl  all  	    all       all            scram-sha-256   clientcert=1
+hostssl  all  	    all       all            scram-sha-256   clientcert=${PG_VERIFY_PEER}
 EOF
+
+
+echo
+echo 'PostgreSQL setting paths to TLS certificates.'
+echo
+
+cat >> /etc/ega/pg.conf <<EOF
+ssl_cert_file = '${PG_CERTFILE}'
+ssl_key_file = '${PG_KEYFILE}'
+EOF
+
+if [ "${PG_VERIFY_PEER}" == "1" ] && [ -e "${PG_CACERTFILE}" ]; then
+    echo "ssl_ca_file = '${PG_CACERTFILE}'" >> /etc/ega/pg.conf
+fi
 
 echo
 echo 'PostgreSQL init process complete; ready for start up.'
