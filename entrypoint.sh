@@ -6,7 +6,7 @@ set -Eeo pipefail
 PG_CERTFILE=${PG_CERTFILE:-/etc/ega/pg.cert}
 PG_KEYFILE=${PG_KEYFILE:-/etc/ega/pg.key}
 PG_CACERTFILE=${PG_CACERTFILE:-/etc/ega/CA.cert}
-PG_VERIFY_PEER=${PG_VERIFY_PEER:-1}
+PG_VERIFY_PEER=${PG_VERIFY_PEER:-0}
 
 if [ "$(id -u)" = '0' ]; then
     # When root
