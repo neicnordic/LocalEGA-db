@@ -30,13 +30,13 @@ The following environment variables can be used to configure the database:
 
 | Variable         | Description                                      | Default value      |
 |-----------------:|:-------------------------------------------------|:-------------------|
-| PG\_CERTFILE     | Public Certificate in PEM format                 | `/etc/ega/pg.cert` |
-| PG\_KEYFILE      | Private Key in PEM format                        | `/etc/ega/pg.key`  |
-| PG\_CACERTFILE   | Public CA Certificate in PEM format              | `/etc/ega/CA.cert` |
+| PG\_SERVER\_CERT | Public Certificate in PEM format                 | `/etc/ega/pg.cert` |
+| PG\_SERVER\_KEY  | Private Key in PEM format                        | `/etc/ega/pg.key`  |
+| PG\_CA           | Public CA Certificate in PEM format              | `/etc/ega/CA.cert` |
 | PG\_VERIFY\_PEER | Enforce client verification                      | 0                  |
 | SSL\_SUBJ        | Subject for the self-signed certificate creation | `/C=ES/ST=Spain/L=Barcelona/O=CRG/OU=SysDevs/CN=LocalEGA/emailAddress=all.ega@crg.eu` |
 
-If not already injected, the files located at `PG_CERTFILE` and `PG_KEYFILE` will be generated, as a self-signed public/private certificate pair, using `SSL_SUBJ`.
+If not already injected, the files located at `PG_SERVER_CERT` and `PG_SERVER_KEY` will be generated, as a self-signed public/private certificate pair, using `SSL_SUBJ`.
 
-Client verification is enforced if and only if `PG_CACERTFILE` exists and `PG_VERIFY_PEER` is set to `1`.
+Client verification is enforced if and only if `PG_CA` exists and `PG_VERIFY_PEER` is set to `1`.
 
