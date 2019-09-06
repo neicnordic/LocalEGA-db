@@ -8,35 +8,12 @@ PG_SERVER_KEY=${PG_SERVER_KEY:-/etc/ega/pg.key}
 PG_CA=${PG_CA:-/etc/ega/CA.cert}
 PG_VERIFY_PEER=${PG_VERIFY_PEER:-0}
 
-if [ "$(id -u)" = '0' ]; then
-    # When root
-    mkdir -p "$PGDATA"
-    chown -R postgres "$PGDATA"
-    chmod 700 "$PGDATA"
-
-    if [ ! -e "${PG_SERVER_CERT}" ] || [ ! -e "${PG_SERVER_KEY}" ]; then
-	# Generating the SSL certificate + key
-	openssl req -x509 -newkey rsa:2048 \
-		-keyout "${PG_SERVER_KEY}" -nodes \
-		-out "${PG_SERVER_CERT}" -sha256 \
-		-days 1000 -subj ${SSL_SUBJ}
-    else
-	# Otherwise use the injected ones.
-	echo "Using the injected certificate/privatekey pair" 
-    fi
-    # Fixing the ownership and permissions
-    cp "${PG_SERVER_KEY}" "${PG_SERVER_KEY}.lega"
-    PG_SERVER_KEY=${PG_SERVER_KEY}.lega
-    cp "${PG_SERVER_CERT}" "${PG_SERVER_CERT}.lega"
-    PG_SERVER_CERT=${PG_SERVER_CERT}.lega
-    chown postgres:postgres "${PG_SERVER_KEY}" "${PG_SERVER_CERT}"
-    chmod 600 "${PG_SERVER_KEY}"
-
-    chown postgres:postgres /etc/ega/pg.conf
-    
-    # Run again as 'postgres'
-    exec su-exec postgres "$BASH_SOURCE" "$@"
-fi
+if [ ! -e "${PG_SERVER_CERT}" ] || [ ! -e "${PG_SERVER_KEY}" ]; then
+# Generating the SSL certificate + key
+openssl req -x509 -newkey rsa:2048 \
+    -keyout "${PG_SERVER_KEY}" -nodes \
+    -out "${PG_SERVER_CERT}" -sha256 \
+    -days 1000 -subj ${SSL_SUBJ}
 
 # If already initiliazed, then run
 [ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=/etc/ega/pg.conf
