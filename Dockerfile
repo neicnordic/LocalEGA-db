@@ -10,7 +10,7 @@ LABEL org.label-schema.vcs-url="https://github.com/neicnordic/LocalEGA-db"
 LABEL org.label-schema.vcs-ref=$SOURCE_COMMIT
 
 ENV SSL_SUBJ             /C=SE/ST=Sweden/L=Uppsala/O=NBIS/OU=SysDevs/CN=LocalEGA
-ENV TZ                   Europe/Madrid
+ENV TZ                   Europe/Stockholm
 ENV PGDATA               /ega/data
 
 EXPOSE 5432
