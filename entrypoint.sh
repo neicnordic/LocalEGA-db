@@ -22,7 +22,7 @@ fi
 initdb --username=postgres # no password: no authentication for postgres user
 
 # Allow "trust" authentication for local connections, during setup
-cat > $PGDATA/pg_hba.conf <<EOF
+cat > "$PGDATA/pg_hba.conf" <<EOF
 local   all             all                                     trust
 host    all             all             127.0.0.1/32            trust
 host    all             all             ::1/128                 trust
@@ -44,10 +44,10 @@ DB_FILES=(/etc/ega/initdb.d/main.sql
 	  /etc/ega/initdb.d/ebi.sql
 	  /etc/ega/initdb.d/grants.sql)
 
-for f in ${DB_FILES[@]}; do # in order
+for f in "${DB_FILES[@]}"; do # in order
     echo "$0: running $f";
     echo
-    psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega -f $f;
+    psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega -f "$f";
     echo
 done
 
@@ -72,7 +72,7 @@ pg_ctl -D "$PGDATA" -m fast -w stop
 #   - Requiring password authentication for all, in case someone logs onto that machine
 #   - Using scram-sha-256 is stronger than md5
 #   - Enforcing SSL communication
-cat > $PGDATA/pg_hba.conf <<EOF
+cat > "$PGDATA/pg_hba.conf" <<EOF
 # TYPE   DATABASE   USER      ADDRESS        METHOD
 local  	 all  	    all	      		     scram-sha-256
 hostssl  all 	    all       127.0.0.1/32   scram-sha-256
