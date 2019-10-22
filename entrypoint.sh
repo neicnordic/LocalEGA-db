@@ -13,8 +13,8 @@ if [ ! -e "${PG_SERVER_CERT}" ] || [ ! -e "${PG_SERVER_KEY}" ]; then
 openssl req -x509 -newkey rsa:2048 \
     -keyout "${PG_SERVER_KEY}" -nodes \
     -out "${PG_SERVER_CERT}" -sha256 \
-    -days 1000 -subj ${SSL_SUBJ}
-
+    -days 1000 -subj "${SSL_SUBJ}"
+fi
 # If already initiliazed, then run
 [ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=/etc/ega/pg.conf
 
