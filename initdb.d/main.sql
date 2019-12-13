@@ -89,8 +89,6 @@ CREATE TABLE local_ega.main (
        encryption_method         VARCHAR REFERENCES local_ega.archive_encryption (mode), -- ON DELETE CASCADE,
        version                   INTEGER , -- DEFAULT 1, -- Crypt4GH version
        header                    TEXT,              -- Crypt4GH header
-       session_key_checksum      VARCHAR(128) NULL, -- NOT NULL, -- To check if session key already used
-       session_key_checksum_type checksum_algorithm,
        -- Note: We can support multiple encryption formats. See at the end of that file.
 
        -- Table Audit / Logs
@@ -100,6 +98,7 @@ CREATE TABLE local_ega.main (
        last_modified             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()
 );
 CREATE UNIQUE INDEX file_id_idx ON local_ega.main(id);
+
 
 -- When there is an updated, remember the timestamp
 CREATE FUNCTION main_updated()
@@ -111,6 +110,18 @@ END;
 $main_updated$ LANGUAGE plpgsql;
 
 CREATE TRIGGER main_updated AFTER UPDATE ON local_ega.main FOR EACH ROW EXECUTE PROCEDURE main_updated();
+
+-- ##################################################
+--              Session Keys Checksums
+-- ##################################################
+-- To keep track of already used session keys,
+-- we record their checksum
+CREATE TABLE local_ega.session_key_checksums (
+       session_key_checksum      VARCHAR(128) NOT NULL, PRIMARY KEY(session_key_checksum), UNIQUE (session_key_checksum),
+       session_key_checksum_type checksum_algorithm,
+       file_id                   INTEGER NOT NULL REFERENCES local_ega.main(id) ON DELETE CASCADE
+);
+
 
 -- ##################################################
 --                      ERRORS
