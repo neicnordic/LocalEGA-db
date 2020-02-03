@@ -23,8 +23,8 @@ CREATE TYPE request_type AS (req_id                    INTEGER,
 			     archive_path                TEXT,
 			     archive_type                local_ega.storage,
 			     file_size                 INTEGER,
-			     unencrypted_checksum      VARCHAR,
-			     unencrypted_checksum_type local_ega.checksum_algorithm);
+			     archive_file_checksum      VARCHAR,
+			     archive_file_checksum_type local_ega.checksum_algorithm);
 
 CREATE FUNCTION make_request(sid    local_ega.main.stable_id%TYPE,
 			     uinfo  local_ega_download.requests.user_info%TYPE,
@@ -58,8 +58,8 @@ BEGIN
      req.archive_path              := archive_rec.archive_path;
      req.archive_type              := archive_rec.archive_type;
      req.file_size                 := archive_rec.archive_filesize;
-     req.unencrypted_checksum      := archive_rec.unencrypted_checksum;
-     req.unencrypted_checksum_type := archive_rec.unencrypted_checksum_type;
+     req.archive_file_checksum      := archive_rec.archive_file_checksum;
+     req.archive_file_checksum_type := archive_rec.archive_file_checksum_type;
      RETURN req;
 END;
 $make_request$ LANGUAGE plpgsql;
