@@ -89,8 +89,6 @@ CREATE TABLE local_ega.main (
        encryption_method         VARCHAR REFERENCES local_ega.archive_encryption (mode), -- ON DELETE CASCADE,
        version                   INTEGER , -- DEFAULT 1, -- Crypt4GH version
        header                    TEXT,              -- Crypt4GH header
-       session_key_checksum      VARCHAR(128) NULL, -- NOT NULL, -- To check if session key already used
-       session_key_checksum_type checksum_algorithm,
        -- Note: We can support multiple encryption formats. See at the end of that file.
 
        -- Table Audit / Logs
@@ -100,6 +98,7 @@ CREATE TABLE local_ega.main (
        last_modified             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()
 );
 CREATE UNIQUE INDEX file_id_idx ON local_ega.main(id);
+
 
 -- When there is an updated, remember the timestamp
 CREATE FUNCTION main_updated()
@@ -111,6 +110,33 @@ END;
 $main_updated$ LANGUAGE plpgsql;
 
 CREATE TRIGGER main_updated AFTER UPDATE ON local_ega.main FOR EACH ROW EXECUTE PROCEDURE main_updated();
+
+-- ##################################################
+--              Session Keys Checksums
+-- ##################################################
+-- To keep track of already used session keys,
+-- we record their checksum
+CREATE TABLE local_ega.session_key_checksums_sha256 (
+       session_key_checksum      VARCHAR(128) NOT NULL, PRIMARY KEY(session_key_checksum), UNIQUE (session_key_checksum),
+       session_key_checksum_type checksum_algorithm,
+       file_id                   INTEGER NOT NULL REFERENCES local_ega.main(id) ON DELETE CASCADE
+);
+
+
+-- Returns if the session key checksums are already found in the database
+CREATE FUNCTION check_session_keys_checksums_sha256(checksums text[]) --local_ega.session_key_checksums.session_key_checksum%TYPE []
+    RETURNS boolean AS $check_session_keys_checksums_sha256$
+    #variable_conflict use_column
+    BEGIN
+	RETURN EXISTS(SELECT 1
+                      FROM local_ega.session_key_checksums_sha256 sk 
+	              INNER JOIN local_ega.files f
+		      ON f.id = sk.file_id 
+		      WHERE (f.status <> 'ERROR' AND f.status <> 'DISABLED') AND -- no data-race on those values
+		      	    sk.session_key_checksum = ANY(checksums));
+    END;
+$check_session_keys_checksums_sha256$ LANGUAGE plpgsql;
+
 
 -- ##################################################
 --                      ERRORS
@@ -125,6 +151,7 @@ CREATE TABLE local_ega.main_errors (
 	from_user     BOOLEAN DEFAULT FALSE,
 	occured_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()
 );
+
 
 -- ##################################################
 --         Data-In View
@@ -141,13 +168,11 @@ SELECT id,
        archive_file_reference                     AS archive_path,
        archive_file_type                          AS archive_type,
        archive_file_size                          AS archive_filesize,
-       archive_file_checksum                      AS unencrypted_checksum,
-       archive_file_checksum_type                 AS unencrypted_checksum_type,
+       archive_file_checksum                      AS archive_file_checksum,
+       archive_file_checksum_type                 AS archive_file_checksum_type,
        stable_id,
        header,  -- Crypt4gh specific
        version,
-       session_key_checksum,
-       session_key_checksum_type,
        created_at,
        last_modified
 FROM local_ega.main;
@@ -183,8 +208,8 @@ $insert_file$ LANGUAGE plpgsql;
 -- Flag as READY, and mark older ingestion as deprecated (to clean up)
 CREATE FUNCTION finalize_file(inpath        local_ega.files.inbox_path%TYPE,
 			      eid           local_ega.files.elixir_id%TYPE,
-			      checksum      local_ega.files.unencrypted_checksum%TYPE,
-			      checksum_type VARCHAR, -- local_ega.files.unencrypted_checksum_type%TYPE,
+			      checksum      local_ega.files.archive_file_checksum%TYPE,
+			      checksum_type VARCHAR, -- local_ega.files.archive_file_checksum_type%TYPE,
 			      sid           local_ega.files.stable_id%TYPE)
     RETURNS void AS $finalize_file$
     #variable_conflict use_column
@@ -192,8 +217,8 @@ CREATE FUNCTION finalize_file(inpath        local_ega.files.inbox_path%TYPE,
 	-- -- Check if in proper state
 	-- IF EXISTS(SELECT id
 	--    	  FROM local_ega.main
-	-- 	  WHERE unencrypted_checksum = checksum AND
-	-- 	  	unencrypted_checksum_type = upper(checksum_type)::local_ega.checksum_algorithm AND
+	-- 	  WHERE archive_file_checksum = checksum AND
+	-- 	  	archive_file_checksum_type = upper(checksum_type)::local_ega.checksum_algorithm AND
 	-- 		elixir_id = eid AND
 	-- 		inbox_path = inpath AND
 	-- 		status <> 'COMPLETED')
@@ -204,8 +229,8 @@ CREATE FUNCTION finalize_file(inpath        local_ega.files.inbox_path%TYPE,
 	UPDATE local_ega.files
 	SET status = 'READY',
 	    stable_id = sid
-	WHERE unencrypted_checksum = checksum AND
-	      unencrypted_checksum_type = upper(checksum_type)::local_ega.checksum_algorithm AND
+	WHERE archive_file_checksum = checksum AND
+	      archive_file_checksum_type = upper(checksum_type)::local_ega.checksum_algorithm AND
 	      elixir_id = eid AND
 	      inbox_path = inpath AND
 	      status = 'COMPLETED';
@@ -221,18 +246,6 @@ BEGIN
 END;
 $is_disabled$ LANGUAGE plpgsql;
 
--- Returns if the session key checksum is already found in the database
-CREATE FUNCTION check_session_key_checksum(checksum      local_ega.files.session_key_checksum%TYPE,
-       		      			   checksum_type VARCHAR) -- local_ega.files.session_key_checksum_type%TYPE)
-    RETURNS boolean AS $check_session_key_checksum$
-    #variable_conflict use_column
-    BEGIN
-	RETURN EXISTS(SELECT 1 FROM local_ega.files
-		      WHERE session_key_checksum = checksum AND
-		      	    session_key_checksum_type = upper(checksum_type)::local_ega.checksum_algorithm AND
-			    (status <> 'ERROR' OR status <> 'DISABLED'));
-    END;
-$check_session_key_checksum$ LANGUAGE plpgsql;
 
 -- Just showing the current/active errors
 CREATE VIEW local_ega.errors AS
@@ -282,8 +295,8 @@ SELECT id                        AS file_id
      , archive_file_reference      AS archive_path
      , archive_file_type           AS archive_type
      , archive_file_size           AS archive_filesize
-     , archive_file_checksum       AS unencrypted_checksum
-     , archive_file_checksum_type  AS unencrypted_checksum_type
+     , archive_file_checksum       AS archive_file_checksum
+     , archive_file_checksum_type  AS archive_file_checksum_type
      , header                    AS header
      , version                   AS version
 FROM local_ega.main
