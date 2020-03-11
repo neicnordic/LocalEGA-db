@@ -91,17 +91,17 @@ echo
 echo 'PostgreSQL setting paths to TLS certificates.'
 echo
 
-cat >> /etc/ega/pg.conf <<EOF
+cat >> $PGDATA/pg.conf <<EOF
 ssl_cert_file = '${PG_SERVER_CERT}'
 ssl_key_file = '${PG_SERVER_KEY}'
 EOF
 
 if [ "${PG_VERIFY_PEER}" == "1" ] && [ -e "${PG_CA}" ]; then
-    echo "ssl_ca_file = '${PG_CA}'" >> /etc/ega/pg.conf
+    echo "ssl_ca_file = '${PG_CA}'" >> $PGDATA/pg.conf
 fi
 
 echo
 echo 'PostgreSQL init process complete; ready for start up.'
 echo
 
-exec postgres -c config_file=/etc/ega/pg.conf
+exec postgres -c config_file=$PGDATA/pg.conf
