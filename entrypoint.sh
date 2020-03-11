@@ -2,6 +2,8 @@
 set -Eeo pipefail
 # TODO swap to -Eeuo pipefail above (after handling all potentially-unset variables)
 
+[[ -z "${PGDATA}" ]] && echo 'Environment PGDATA is empty' 1>&2 && exit 1
+
 # Default paths
 PG_SERVER_CERT=${PG_SERVER_CERT:-/etc/ega/pg.cert}
 PG_SERVER_KEY=${PG_SERVER_KEY:-/etc/ega/pg.key}
