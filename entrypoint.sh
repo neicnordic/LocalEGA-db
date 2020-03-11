@@ -4,6 +4,9 @@ set -Eeo pipefail
 
 [[ -z "${PGDATA}" ]] && echo 'Environment PGDATA is empty' 1>&2 && exit 1
 
+# If already initiliazed, then run
+[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=$PGDATA/pg.conf
+
 # Default paths
 PG_SERVER_CERT=${PG_SERVER_CERT:-/etc/ega/pg.cert}
 PG_SERVER_KEY=${PG_SERVER_KEY:-/etc/ega/pg.key}
@@ -17,8 +20,6 @@ openssl req -x509 -newkey rsa:2048 \
     -out "${PG_SERVER_CERT}" -sha256 \
     -days 1000 -subj "${SSL_SUBJ}"
 fi
-# If already initiliazed, then run
-[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=/etc/ega/pg.conf
 
 # Otherwise, do initilization (as postgres user)
 initdb --username=postgres # no password: no authentication for postgres user
