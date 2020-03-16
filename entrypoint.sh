@@ -2,15 +2,13 @@
 set -Eeo pipefail
 # TODO swap to -Eeuo pipefail above (after handling all potentially-unset variables)
 
-[[ -z "${PGDATA}" ]] && echo 'Environment PGDATA is empty' 1>&2 && exit 1
-
 # If already initiliazed, then run
-[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=$PGDATA/pg.conf
+[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=${PGVOLUME:-/ega}/pg.conf
 
 # Default paths
-PG_SERVER_CERT=${PG_SERVER_CERT:-/etc/ega/pg.cert}
-PG_SERVER_KEY=${PG_SERVER_KEY:-/etc/ega/pg.key}
-PG_CA=${PG_CA:-/etc/ega/CA.cert}
+PG_SERVER_CERT=${PG_SERVER_CERT:-/ega/pg.cert}
+PG_SERVER_KEY=${PG_SERVER_KEY:-/ega/pg.key}
+PG_CA=${PG_CA:-/ega/CA.cert}
 PG_VERIFY_PEER=${PG_VERIFY_PEER:-0}
 
 if [ ! -e "${PG_SERVER_CERT}" ] || [ ! -e "${PG_SERVER_KEY}" ]; then
@@ -19,6 +17,11 @@ openssl req -x509 -newkey rsa:2048 \
     -keyout "${PG_SERVER_KEY}" -nodes \
     -out "${PG_SERVER_CERT}" -sha256 \
     -days 1000 -subj "${SSL_SUBJ}"
+fi
+
+if [ ! -d "{$PGDATA}" ]; then
+mkdir -p "$PGDATA"
+chmod 700 "$PGDATA"
 fi
 
 # Otherwise, do initilization (as postgres user)
@@ -85,23 +88,23 @@ hostssl  all  	    all       all            scram-sha-256   clientcert=${PG_VERI
 EOF
 
 # Copy config file to presistent volume
-cp /etc/ega/pg.conf $PGDATA/pg.conf
+cp /etc/ega/pg.conf ${PGVOLUME:-/ega}/pg.conf
 
 echo
 echo 'PostgreSQL setting paths to TLS certificates.'
 echo
 
-cat >> $PGDATA/pg.conf <<EOF
+cat >> ${PGVOLUME:-/ega}/pg.conf <<EOF
 ssl_cert_file = '${PG_SERVER_CERT}'
 ssl_key_file = '${PG_SERVER_KEY}'
 EOF
 
 if [ "${PG_VERIFY_PEER}" == "1" ] && [ -e "${PG_CA}" ]; then
-    echo "ssl_ca_file = '${PG_CA}'" >> $PGDATA/pg.conf
+    echo "ssl_ca_file = '${PG_CA}'" >> ${PGVOLUME:-/ega}/pg.conf
 fi
 
 echo
 echo 'PostgreSQL init process complete; ready for start up.'
 echo
 
-exec postgres -c config_file=$PGDATA/pg.conf
+exec postgres -c config_file=${PGVOLUME:-/ega}/pg.conf
