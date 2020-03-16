@@ -36,4 +36,7 @@ VOLUME /ega/data
 
 USER 70
 
+HEALTHCHECK --interval=3s \
+    CMD pg_isready -U lega_out
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
