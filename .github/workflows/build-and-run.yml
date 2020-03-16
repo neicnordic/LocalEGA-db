@@ -72,3 +72,26 @@ jobs:
       run: |
         docker stop db-server &&\
         docker rm db-server
+    - name: Restart server
+      run: |
+        docker run -d \
+        -e DB_LEGA_IN_PASSWORD="lega_in" \
+        -e DB_LEGA_OUT_PASSWORD="lega_out" \
+        -e PG_SERVER_CERT="/ega/pg.crt" \
+        -e PG_SERVER_KEY="/ega/pg.key" \
+        -v "data:/ega" \
+        --name db-server \
+        --network ci \
+        neicnordic/sda-db:${GITHUB_SHA::8}
+    - name: Vait for server to restart
+      run: |
+        RETRY_TIMES=0
+        until docker ps -f name=db-server | grep healthy;
+        do echo "waiting for server to become ready";
+        RETRY_TIMES=$((RETRY_TIMES+1));
+        if [ $RETRY_TIMES -eq 10 ]; then 
+          docker logs db-server
+          exit 1
+        fi
+        sleep 3;
+        done
