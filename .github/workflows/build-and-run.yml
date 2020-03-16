@@ -27,3 +27,15 @@ jobs:
         -u 70:70 \
         --name db-server \
         neicnordic/sda-db:${GITHUB_SHA::8}
+    - name: Vait for server to start
+      run: |
+        RETRY_TIMES=0
+        until docker ps -f name=db-server | grep healthy;
+        do echo "waiting for server to become ready";
+        RETRY_TIMES=$((RETRY_TIMES+1));
+        if [ $RETRY_TIMES -eq 10 ]; then 
+          docker logs db-server
+          exit 1
+        fi
+        sleep 3;
+        done
