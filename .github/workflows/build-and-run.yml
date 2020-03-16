@@ -1,0 +1,29 @@
+name: Integration Tests
+
+on: [push,pull_request]
+
+jobs:
+  build:
+    name: Build and test image
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build server image
+      run: |
+        docker build \
+        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+        --build-arg SOURCE_COMMIT=${GITHUB_SHA::8} \
+        --no-cache \
+        --rm \
+        -t neicnordic/sda-db:${GITHUB_SHA::8} \
+        .
+    - name: Start server
+      run: |
+        mkdir -p data && \
+        docker run -d \
+        -e DB_LEGA_IN_PASSWORD="lega_in" \
+        -e DB_LEGA_OUT_PASSWORD="lega_out" \
+        -v "data:/ega/data" \
+        -u 70:70 \
+        --name db-server \
+        neicnordic/sda-db:${GITHUB_SHA::8}
