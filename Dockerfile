@@ -13,26 +13,19 @@ ENV SSL_SUBJ             /C=SE/ST=Sweden/L=Uppsala/O=NBIS/OU=SysDevs/CN=LocalEGA
 ENV TZ                   Europe/Stockholm
 ENV PGDATA               /ega/data
 
-EXPOSE 5432
-
 RUN apk add --no-cache openssl
 
 RUN mkdir -p /etc/ega/initdb.d   && \
-    mkdir -p /var/run/postgresql && \
-    mkdir -p /ega/data
+    mkdir -p /ega && \
+    chown postgres:postgres /ega
 
 COPY pg.conf       /etc/ega/pg.conf
 COPY initdb.d      /etc/ega/initdb.d
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-RUN chmod 755 /usr/local/bin/entrypoint.sh          &&\
-    chown -R postgres:postgres /etc/ega             && \
-    chmod -R 750 /etc/ega                           && \
-    chown -R postgres:postgres /var/run/postgresql  && \
-    chmod 2777 /var/run/postgresql                  && \
-    chown -R postgres:postgres /ega/data
+RUN chmod 755 /usr/local/bin/entrypoint.sh
 
-VOLUME /ega/data
+VOLUME /ega
 
 USER 70
 
