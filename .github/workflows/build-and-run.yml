@@ -68,3 +68,7 @@ jobs:
         if [ $? == 1 ]; then
           exit 1
         fi
+    - name: Stop and remove server
+      run: |
+        docker stop db-server &&\
+        docker rm db-server
