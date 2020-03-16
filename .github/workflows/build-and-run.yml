@@ -51,3 +51,20 @@ jobs:
         fi
         sleep 3;
         done
+    - name: Write data
+      run: |
+        docker run --rm \
+        --name client \
+        --network ci \
+        neicnordic/pg-client:latest postgresql://lega_in:lega_in@db-server:5432/lega \
+        -c "SELECT local_ega.insert_file('test_file.c4gh','dummy')"
+    - name: READ data
+      run: |
+        docker run --rm \
+        --name client \
+        --network ci \
+        neicnordic/pg-client:latest postgresql://lega_in:lega_in@db-server:5432/lega \
+        -c "SELECT elixir_id, inbox_path from local_ega.files" | grep test_file; \
+        if [ $? == 1 ]; then
+          exit 1
+        fi
