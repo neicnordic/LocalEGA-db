@@ -85,7 +85,7 @@ hostssl  all  	    all       all            scram-sha-256   clientcert=${PG_VERI
 EOF
 
 # Copy config file to presistent volume
-cp /etc/ega/pg.conf.default $PGDATA/pg.conf
+cp /etc/ega/pg.conf $PGDATA/pg.conf
 
 echo
 echo 'PostgreSQL setting paths to TLS certificates.'
