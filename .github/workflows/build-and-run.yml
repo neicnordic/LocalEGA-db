@@ -83,7 +83,7 @@ jobs:
         --name db-server \
         --network ci \
         neicnordic/sda-db:${GITHUB_SHA::8}
-    - name: Vait for server to restart
+    - name: Wait for server to restart
       run: |
         RETRY_TIMES=0
         until docker ps -f name=db-server | grep healthy;
@@ -95,7 +95,7 @@ jobs:
         fi
         sleep 3;
         done
-    - name: Verify data is intact
+    - name: Werify data is intact
       run: |
         docker run --rm \
         --name client \
