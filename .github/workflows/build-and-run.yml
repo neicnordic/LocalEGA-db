@@ -1,0 +1,107 @@
+name: Integration Tests
+
+on: [pull_request]
+
+jobs:
+  build:
+    name: Build and test image
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build server image
+      run: |
+        docker build \
+        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+        --build-arg SOURCE_COMMIT=${GITHUB_SHA::8} \
+        --no-cache \
+        --rm \
+        -t neicnordic/sda-db:${GITHUB_SHA::8} \
+        .
+    - name: Prepare for tests
+      run: |
+        mkdir -p data && \
+        openssl req -x509 -newkey rsa:2048 \
+          -keyout "data/pg.crt" -nodes \
+          -out "data/pg.key" -sha256 \
+          -subj "/C=SE/ST=Sweden/L=Uppsala/O=NBIS/OU=SysDevs/CN=LocalEGA" && \
+        sudo chown -R 70:70 data && \
+        sudo chmod 600 data/pg.key && \
+        docker network create ci
+    - name: Start server
+      run: |
+        docker run -d \
+        -e DB_LEGA_IN_PASSWORD="lega_in" \
+        -e DB_LEGA_OUT_PASSWORD="lega_out" \
+        -e PG_SERVER_CERT="/ega/pg.crt" \
+        -e PG_SERVER_KEY="/ega/pg.key" \
+        -v "data:/ega" \
+        -u 70:70 \
+        --name db-server \
+        --network ci \
+        neicnordic/sda-db:${GITHUB_SHA::8}
+    - name: Vait for server to start
+      run: |
+        RETRY_TIMES=0
+        until docker ps -f name=db-server | grep healthy;
+        do echo "waiting for server to become ready";
+        RETRY_TIMES=$((RETRY_TIMES+1));
+        if [ $RETRY_TIMES -eq 10 ]; then 
+          docker logs db-server
+          exit 1
+        fi
+        sleep 3;
+        done
+    - name: Write data
+      run: |
+        docker run --rm \
+        --name client \
+        --network ci \
+        neicnordic/pg-client:latest postgresql://lega_in:lega_in@db-server:5432/lega \
+        -c "SELECT local_ega.insert_file('test_file.c4gh','dummy')"
+    - name: Read data
+      run: |
+        docker run --rm \
+        --name client \
+        --network ci \
+        neicnordic/pg-client:latest postgresql://lega_in:lega_in@db-server:5432/lega \
+        -c "SELECT elixir_id, inbox_path from local_ega.files" | grep test_file; \
+        if [ $? == 1 ]; then
+          exit 1
+        fi
+    - name: Stop and remove server
+      run: |
+        docker stop db-server &&\
+        docker rm db-server
+    - name: Restart server
+      run: |
+        docker run -d \
+        -e DB_LEGA_IN_PASSWORD="lega_in" \
+        -e DB_LEGA_OUT_PASSWORD="lega_out" \
+        -e PG_SERVER_CERT="/ega/pg.crt" \
+        -e PG_SERVER_KEY="/ega/pg.key" \
+        -v "data:/ega" \
+        --name db-server \
+        --network ci \
+        neicnordic/sda-db:${GITHUB_SHA::8}
+    - name: Wait for server to restart
+      run: |
+        RETRY_TIMES=0
+        until docker ps -f name=db-server | grep healthy;
+        do echo "waiting for server to become ready";
+        RETRY_TIMES=$((RETRY_TIMES+1));
+        if [ $RETRY_TIMES -eq 10 ]; then 
+          docker logs db-server
+          exit 1
+        fi
+        sleep 3;
+        done
+    - name: Verify data is intact
+      run: |
+        docker run --rm \
+        --name client \
+        --network ci \
+        neicnordic/pg-client:latest postgresql://lega_in:lega_in@db-server:5432/lega \
+        -c "SELECT elixir_id, inbox_path from local_ega.files" | grep test_file; \
+        if [ $? == 1 ]; then
+          exit 1
+        fi
