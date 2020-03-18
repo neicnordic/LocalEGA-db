@@ -58,7 +58,7 @@ jobs:
         --network ci \
         neicnordic/pg-client:latest postgresql://lega_in:lega_in@db-server:5432/lega \
         -c "SELECT local_ega.insert_file('test_file.c4gh','dummy')"
-    - name: READ data
+    - name: Read data
       run: |
         docker run --rm \
         --name client \
@@ -95,7 +95,7 @@ jobs:
         fi
         sleep 3;
         done
-    - name: Werify data is intact
+    - name: Verify data is intact
       run: |
         docker run --rm \
         --name client \
