@@ -36,10 +36,10 @@ EOF
 
 # Internal start of the server for setup via 'psql'
 # Note: does not listen on external TCP/IP and waits until start finishes
-pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -c password_encryption=scram-sha-256" -w start
+pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -c password_encryption=scram-sha-256 -k /ega" -w start
 
 # Create lega database
-psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname postgres <<-'EOSQL'
+psql -h /ega -v ON_ERROR_STOP=1 --username postgres --no-password --dbname postgres <<-'EOSQL'
      SET TIME ZONE 'UTC';
      CREATE DATABASE lega;
 EOSQL
@@ -53,7 +53,7 @@ DB_FILES=(/etc/ega/initdb.d/main.sql
 for f in "${DB_FILES[@]}"; do # in order
     echo "$0: running $f";
     echo
-    psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega -f "$f";
+    psql -h /ega -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega -f "$f";
     echo
 done
 
@@ -62,7 +62,7 @@ done
 [[ -z "${DB_LEGA_IN_PASSWORD}" ]] && echo 'Environment DB_LEGA_IN_PASSWORD is empty' 1>&2 && exit 1
 [[ -z "${DB_LEGA_OUT_PASSWORD}" ]] && echo 'Environment DB_LEGA_OUT_PASSWORD is empty' 1>&2 && exit 1
 
-psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega <<EOSQL
+psql -h /ega -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega <<EOSQL
      ALTER USER lega_in WITH PASSWORD '${DB_LEGA_IN_PASSWORD}';
      ALTER USER lega_out WITH PASSWORD '${DB_LEGA_OUT_PASSWORD}';
 EOSQL
