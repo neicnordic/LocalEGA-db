@@ -1,14 +1,16 @@
-#!/usr/bin/env bash
-set -Eeo pipefail
+#!/bin/sh
+set -eo pipefail
 # TODO swap to -Eeuo pipefail above (after handling all potentially-unset variables)
 
+PGDATA=${PGVOLUME}/data
+
 # If already initiliazed, then run
-[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file=${PGVOLUME:-/ega}/pg.conf
+[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file="${PGVOLUME}/pg.conf"
 
 # Default paths
-PG_SERVER_CERT=${PG_SERVER_CERT:-/ega/pg.cert}
-PG_SERVER_KEY=${PG_SERVER_KEY:-/ega/pg.key}
-PG_CA=${PG_CA:-/ega/CA.cert}
+PG_SERVER_CERT=${PG_SERVER_CERT:-${PGVOLUME}/pg.cert}
+PG_SERVER_KEY=${PG_SERVER_KEY:-${PGVOLUME}/pg.key}
+PG_CA=${PG_CA:-${PGVOLUME}/CA.cert}
 PG_VERIFY_PEER=${PG_VERIFY_PEER:-0}
 
 if [ ! -e "${PG_SERVER_CERT}" ] || [ ! -e "${PG_SERVER_KEY}" ]; then
@@ -17,11 +19,6 @@ openssl req -x509 -newkey rsa:2048 \
     -keyout "${PG_SERVER_KEY}" -nodes \
     -out "${PG_SERVER_CERT}" -sha256 \
     -days 1000 -subj "${SSL_SUBJ}"
-fi
-
-if [ ! -d "{$PGDATA}" ]; then
-mkdir -p "$PGDATA"
-chmod 700 "$PGDATA"
 fi
 
 # Otherwise, do initilization (as postgres user)
@@ -36,33 +33,27 @@ EOF
 
 # Internal start of the server for setup via 'psql'
 # Note: does not listen on external TCP/IP and waits until start finishes
-pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -c password_encryption=scram-sha-256" -w start
+pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -c password_encryption=scram-sha-256 -k $PGVOLUME" -w start
 
 # Create lega database
-psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname postgres <<-'EOSQL'
+psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username postgres --no-password --dbname postgres <<-'EOSQL'
      SET TIME ZONE 'UTC';
      CREATE DATABASE lega;
 EOSQL
 
-# Run sql commands (in order!)
-DB_FILES=(/etc/ega/initdb.d/main.sql
-	  /etc/ega/initdb.d/download.sql
-	  /etc/ega/initdb.d/ebi.sql
-	  /etc/ega/initdb.d/grants.sql)
-
-for f in "${DB_FILES[@]}"; do # in order
+for f in docker-entrypoint-initdb.d/*; do
     echo "$0: running $f";
     echo
-    psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega -f "$f";
+    psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega -f "$f";
     echo
 done
 
 # Set password for lega_in and lega_out users
 
-[[ -z "${DB_LEGA_IN_PASSWORD}" ]] && echo 'Environment DB_LEGA_IN_PASSWORD is empty' 1>&2 && exit 1
-[[ -z "${DB_LEGA_OUT_PASSWORD}" ]] && echo 'Environment DB_LEGA_OUT_PASSWORD is empty' 1>&2 && exit 1
+[ -z "${DB_LEGA_IN_PASSWORD}" ] && echo 'Environment DB_LEGA_IN_PASSWORD is empty' 1>&2 && exit 1
+[ -z "${DB_LEGA_OUT_PASSWORD}" ] && echo 'Environment DB_LEGA_OUT_PASSWORD is empty' 1>&2 && exit 1
 
-psql -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega <<EOSQL
+psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username postgres --no-password --dbname lega <<EOSQL
      ALTER USER lega_in WITH PASSWORD '${DB_LEGA_IN_PASSWORD}';
      ALTER USER lega_out WITH PASSWORD '${DB_LEGA_OUT_PASSWORD}';
 EOSQL
@@ -88,23 +79,43 @@ hostssl  all  	    all       all            scram-sha-256   clientcert=${PG_VERI
 EOF
 
 # Copy config file to presistent volume
-cp /etc/ega/pg.conf ${PGVOLUME:-/ega}/pg.conf
+cat >> "${PGVOLUME}/pg.conf" <<EOF
+listen_addresses = '*'
+max_connections = 100
+authentication_timeout = 10s
+password_encryption = scram-sha-256
+shared_buffers = 128MB
+dynamic_shared_memory_type = posix
+log_timezone = 'UTC'
+datestyle = 'iso, mdy'
+timezone = 'UTC'
+# These settings are initialized by initdb, but they can be changed.
+lc_messages = 'en_US.utf8'		# locale for system error message strings
+lc_monetary = 'en_US.utf8'		# locale for monetary formatting
+lc_numeric = 'en_US.utf8'		# locale for number formatting
+lc_time = 'en_US.utf8'			# locale for time formatting
+# default configuration for text search
+default_text_search_config = 'pg_catalog.english'
+unix_socket_directories = '${PGVOLUME}'
+
+ssl = on
+EOF
 
 echo
 echo 'PostgreSQL setting paths to TLS certificates.'
 echo
 
-cat >> ${PGVOLUME:-/ega}/pg.conf <<EOF
+cat >> "${PGVOLUME}/pg.conf" <<EOF
 ssl_cert_file = '${PG_SERVER_CERT}'
 ssl_key_file = '${PG_SERVER_KEY}'
 EOF
 
-if [ "${PG_VERIFY_PEER}" == "1" ] && [ -e "${PG_CA}" ]; then
-    echo "ssl_ca_file = '${PG_CA}'" >> ${PGVOLUME:-/ega}/pg.conf
+if [ "${PG_VERIFY_PEER}" = "1" ] && [ -e "${PG_CA}" ]; then
+    echo "ssl_ca_file = '${PG_CA}'" >> "${PGVOLUME}/pg.conf"
 fi
 
 echo
 echo 'PostgreSQL init process complete; ready for start up.'
 echo
 
-exec postgres -c config_file=${PGVOLUME:-/ega}/pg.conf
+exec postgres -c config_file="${PGVOLUME}/pg.conf"
