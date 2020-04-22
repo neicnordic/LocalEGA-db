@@ -186,12 +186,6 @@ RETURNS local_ega.main.id%TYPE AS $insert_file$
         file_id  local_ega.main.id%TYPE;
         file_ext local_ega.main.submission_file_extension%TYPE;
     BEGIN
-        -- Mark old ones as deprecated
-        UPDATE local_ega.main SET status = 'DISABLED'
-	                      WHERE submission_file_path = inpath AND
-	  	                    submission_user = eid AND
-				    status <> 'ERROR';
-			   	    
         -- Make a new insertion
         file_ext := substring(inpath from '\.([^\.]*)$'); -- extract extension from filename
 	INSERT INTO local_ega.main (submission_file_path,
