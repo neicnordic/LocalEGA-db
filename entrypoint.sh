@@ -13,6 +13,13 @@ PG_SERVER_KEY=${PG_SERVER_KEY:-${PGVOLUME}/pg.key}
 PG_CA=${PG_CA:-${PGVOLUME}/CA.cert}
 PG_VERIFY_PEER=${PG_VERIFY_PEER:-0}
 
+if [ -n "${PKI_VOLUME_PATH}" ]; then
+# copying the TLS certificates
+    mkdir -p "${PGVOLUME}"/tls
+    cp "${PKI_VOLUME_PATH}"/* "${PGVOLUME}"/tls/
+    chmod 600 "${PGVOLUME}"/tls/*
+fi
+
 if [ ! -e "${PG_SERVER_CERT}" ] || [ ! -e "${PG_SERVER_KEY}" ]; then
 # Generating the SSL certificate + key
 openssl req -x509 -newkey rsa:2048 \
@@ -79,7 +86,7 @@ hostssl  all  	    all       all            scram-sha-256   clientcert=${PG_VERI
 EOF
 
 # Copy config file to presistent volume
-cat >> "${PGVOLUME}/pg.conf" <<EOF
+cat > "${PGVOLUME}/pg.conf" <<EOF
 listen_addresses = '*'
 max_connections = 100
 authentication_timeout = 10s
