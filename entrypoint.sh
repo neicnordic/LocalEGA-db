@@ -79,7 +79,7 @@ hostssl  all  	    all       all            scram-sha-256   clientcert=${PG_VERI
 EOF
 
 # Copy config file to presistent volume
-cat >> "${PGVOLUME}/pg.conf" <<EOF
+cat > "${PGVOLUME}/pg.conf" <<EOF
 listen_addresses = '*'
 max_connections = 100
 authentication_timeout = 10s
