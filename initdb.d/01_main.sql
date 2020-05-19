@@ -15,6 +15,15 @@ CREATE TYPE storage AS ENUM ('S3', 'POSIX');
 --       There is no need to agree on how each site should operate their own database
 --       What we need is to document where they need to update and what.
 
+CREATE TABLE  local_ega.dbschema_version (
+       version     INTEGER,
+       applied     TIMESTAMP WITH TIME ZONE,
+       description VARCHAR(1024),
+       PRIMARY KEY(version), UNIQUE (version)
+);
+
+INSERT INTO local_ega.dbschema_version
+VALUES (0, now(), 'Created with version');
 
 -- ##################################################
 --                  FILE STATUS
