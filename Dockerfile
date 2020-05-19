@@ -17,6 +17,7 @@ RUN apk add --no-cache openssl
 
 COPY initdb.d      /docker-entrypoint-initdb.d
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY migratedb.d   /migratedb.d
 
 RUN chmod 755 /usr/local/bin/entrypoint.sh
 
