@@ -4,7 +4,8 @@ set -eo pipefail
 
 migrate () {
   runmigration=1;
-
+  migfile="${PGDATA}/migrations.$$"
+  
   echo
   echo "Running schema migrations"
   echo
@@ -17,9 +18,9 @@ migrate () {
     for f in migratedb.d/*.sql; do
         echo "Running migration script $f"
         psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username=lega_in --dbname lega -f "$f";
-    done 2>&1 | tee "/tmp/migrations.$$"
+    done 2>&1 | tee "$migfile"
 
-    if grep -F 'Doing migration from' "/tmp/migrations.$$" ; then
+    if grep -F 'Doing migration from' "$migfile" ; then
         runmigration=1
 	echo
 	echo "At least one change occured, running migrations scripts again"
@@ -31,7 +32,7 @@ migrate () {
 	echo
     fi
 
-    rm -f "/tmp/migrations.$$"
+    rm -f "$migfile"
   done
 
   unset PGPASSWORD
