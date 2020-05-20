@@ -19,6 +19,10 @@
 <!-- Enumerate the changes with 1), 2), 3) etc. -->
 <!-- Ensure the test cases are updated if needed. -->
 
+<!-- For database schema changes, be extra mindful that any changes done in -->
+<!-- the base schema setup is reflected in the changs performed by migrations  -->
+<!-- scripts -->
+
 ### Related issues:
 <!-- Reference issues with #<issue-num>. -->
 <!-- Write "Fixes #<issue-num>" to notify Github that this PR fixes an issue. -->
