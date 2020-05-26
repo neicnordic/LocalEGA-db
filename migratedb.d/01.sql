@@ -2,6 +2,8 @@
 DO
 $$
 DECLARE
+-- The version we know how to do migration from, at the end of a successful migration
+-- we will no longer be at this version.
   sourcever INTEGER := 0;
   changes VARCHAR := 'Noop schema migration, can be used as template';
 BEGIN
