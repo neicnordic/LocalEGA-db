@@ -2,10 +2,61 @@
 set -eo pipefail
 # TODO swap to -Eeuo pipefail above (after handling all potentially-unset variables)
 
+migrate () {
+  runmigration=1;
+  migfile="${PGDATA}/migrations.$$"
+  
+  echo
+  echo "Running schema migrations"
+  echo
+
+  PGPASSWORD=${DB_LEGA_IN_PASSWORD}
+  export PGPASSWORD
+
+  while [ 0 -lt "$runmigration" ]; do
+
+    for f in migratedb.d/*.sql; do
+        echo "Running migration script $f"
+        psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username=lega_in --dbname lega -f "$f";
+    done 2>&1 | tee "$migfile"
+
+    if grep -F 'Doing migration from' "$migfile" ; then
+        runmigration=1
+	echo
+	echo "At least one change occured, running migrations scripts again"
+	echo
+    else
+        runmigration=0
+	echo
+	echo "No changes registered, done with migrations"
+	echo
+    fi
+
+    rm -f "$migfile"
+  done
+
+  unset PGPASSWORD
+}
+
 PGDATA=${PGVOLUME}/data
 
 # If already initiliazed, then run
-[ -s "$PGDATA/PG_VERSION" ] && exec postgres -c config_file="${PGVOLUME}/pg.conf"
+if [ -s "$PGDATA/PG_VERSION" ]; then
+
+   # Do a little dance here
+   #
+   # We want server to run locally only when we run migrations
+   # as well as supporting changes that requires database restarts
+   # as well as getting output to stdout to support standard
+   # container log collections
+
+   pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -k $PGVOLUME" -w start
+   migrate
+   pg_ctl -D "$PGDATA" -w stop
+
+   # Hand over to postgres proper
+   exec postgres -c config_file="${PGVOLUME}/pg.conf"
+fi
 
 # Default paths
 PG_SERVER_CERT=${PG_SERVER_CERT:-${PGVOLUME}/pg.cert}
@@ -67,6 +118,10 @@ EOSQL
 
 unset DB_LEGA_IN_PASSWORD
 unset DB_LEGA_OUT_PASSWORD
+
+# Run migration scripts
+
+migrate
 
 # Stop the server
 pg_ctl -D "$PGDATA" -m fast -w stop
