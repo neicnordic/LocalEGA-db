@@ -23,7 +23,9 @@ CREATE TABLE  local_ega.dbschema_version (
 );
 
 INSERT INTO local_ega.dbschema_version
-VALUES (0, now(), 'Created with version');
+VALUES (0, now(), 'Created with version'),
+       (1, now(), 'Noop version'),
+       (2, now(), 'Added decrypted_checksum et al');
 
 -- ##################################################
 --                  FILE STATUS
@@ -93,7 +95,11 @@ CREATE TABLE local_ega.main (
        archive_file_size           BIGINT,
        archive_file_checksum       VARCHAR(128) NULL, -- NOT NULL,
        archive_file_checksum_type  checksum_algorithm,
-       
+
+       -- Decrypted file information
+       decrypted_file_checksum      VARCHAR(128),
+       decrypted_file_checksum_type checksum_algorithm,
+
        -- Encryption/Decryption
        encryption_method         VARCHAR REFERENCES local_ega.archive_encryption (mode), -- ON DELETE CASCADE,
        version                   INTEGER , -- DEFAULT 1, -- Crypt4GH version
@@ -179,6 +185,8 @@ SELECT id,
        archive_file_size                          AS archive_filesize,
        archive_file_checksum                      AS archive_file_checksum,
        archive_file_checksum_type                 AS archive_file_checksum_type,
+       decrypted_file_checksum			  AS decrypted_file_checksum,
+       decrypted_file_checksum_type		  AS decrypted_file_checksum_type,
        stable_id,
        header,  -- Crypt4gh specific
        version,
