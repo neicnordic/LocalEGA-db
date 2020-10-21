@@ -39,6 +39,24 @@ BEGIN
        last_modified
      FROM local_ega.main;
 
+     CREATE OR REPLACE VIEW local_ega_ebi.file AS
+     SELECT stable_id                                AS file_id,
+            archive_file_reference                   AS file_name,
+            archive_file_reference                   AS file_path,
+            reverse(split_part(reverse(submission_file_path::text), '/'::text, 1)) AS display_file_name,
+            archive_file_size                        AS file_size,
+            NULL::text                               AS checksum,
+            NULL::text                               AS checksum_type,
+            archive_file_checksum                    AS unencrypted_checksum,
+            archive_file_checksum_type               AS unencrypted_checksum_type,
+            decrypted_file_size                      AS decrypted_file_size,
+            decrypted_file_checksum                  AS decrypted_file_checksum,
+            decrypted_file_checksum_type             AS decrypted_file_checksum_type,
+            status                                   AS file_status,
+            header                                   AS header
+FROM local_ega.main
+WHERE status = 'READY';
+
   ELSE
     RAISE NOTICE 'Schema migration from % to % does not apply now, skipping', sourcever, sourcever+1;
   END IF;

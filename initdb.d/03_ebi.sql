@@ -13,6 +13,9 @@ SELECT stable_id                                AS file_id,
        NULL::text                               AS checksum_type,
        archive_file_checksum                    AS unencrypted_checksum,
        archive_file_checksum_type               AS unencrypted_checksum_type,
+       decrypted_file_size			AS decrypted_file_size,
+       decrypted_file_checksum			AS decrypted_file_checksum,
+       decrypted_file_checksum_type		AS decrypted_file_checksum_type,
        status                                   AS file_status,
        header                                   AS header
 FROM local_ega.main
