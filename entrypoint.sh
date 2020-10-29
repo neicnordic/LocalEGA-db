@@ -2,24 +2,44 @@
 set -eo pipefail
 # TODO swap to -Eeuo pipefail above (after handling all potentially-unset variables)
 
+args=$*
+
 migrate () {
+
+  if echo "$args" | grep -q "nomigrate"; then
+      # Allow skipping migrations if they break so one can try to repair the server.
+      return
+  fi
+
   runmigration=1;
   migfile="${PGDATA}/migrations.$$"
-  
+
   echo
   echo "Running schema migrations"
   echo
 
-  PGPASSWORD=${DB_LEGA_IN_PASSWORD}
+  PGUSER=$(openssl rand -base64 32 | tr -c -d '[:alpha:]'  | tr '[:upper:]' '[:lower:]')
+  PGPASSWORD=$(openssl rand -base64 32 | tr -c -d '[:alnum:]' )
+
+  postgres --single -D "$PGDATA" -c password_encryption=scram-sha-256 <<EOF
+CREATE ROLE $PGUSER SUPERUSER LOGIN PASSWORD '$PGPASSWORD';
+EOF
+
+  sleep 3
+  pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -k \"$PGVOLUME\"" -w start
+  sleep 2
+  
+  export PGUSER
   export PGPASSWORD
 
   while [ 0 -lt "$runmigration" ]; do
 
     for f in migratedb.d/*.sql; do
         echo "Running migration script $f"
-        psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username=lega_in --dbname lega -f "$f";
+	psql -h "$PGVOLUME" -v ON_ERROR_STOP=1 --username="$PGUSER" --dbname lega -f "$f";
+	echo "Done"
     done 2>&1 | tee "$migfile"
-
+    
     if grep -F 'Doing migration from' "$migfile" ; then
         runmigration=1
 	echo
@@ -35,6 +55,12 @@ migrate () {
     rm -f "$migfile"
   done
 
+  pg_ctl -D "$PGDATA" -w stop
+ 
+  postgres --single -D "$PGDATA" <<EOF
+DROP ROLE $PGUSER;
+EOF
+ 
   unset PGPASSWORD
 }
 
@@ -50,9 +76,8 @@ if [ -s "$PGDATA/PG_VERSION" ]; then
    # as well as getting output to stdout to support standard
    # container log collections
 
-   pg_ctl -D "$PGDATA" -o "-c listen_addresses='' -k $PGVOLUME" -w start
+
    migrate
-   pg_ctl -D "$PGDATA" -w stop
 
    # Hand over to postgres proper
    exec postgres -c config_file="${PGVOLUME}/pg.conf"
@@ -119,12 +144,10 @@ EOSQL
 unset DB_LEGA_IN_PASSWORD
 unset DB_LEGA_OUT_PASSWORD
 
+pg_ctl -D "$PGDATA" -w stop
+
 # Run migration scripts
-
 migrate
-
-# Stop the server
-pg_ctl -D "$PGDATA" -m fast -w stop
 
 # Securing the access
 #   - Kill 'trust' for local connections
