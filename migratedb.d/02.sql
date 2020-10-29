@@ -14,8 +14,9 @@ BEGIN
     RAISE NOTICE 'Changes: %', changes;
     INSERT INTO local_ega.dbschema_version VALUES(sourcever+1, now(), changes);
     ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_checksum VARCHAR(128);
-    ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_checksum_type checksum_algorithm;
+    ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_checksum_type local_ega.checksum_algorithm;
     ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_size BIGINT;
+    DROP VIEW IF EXISTS local_ega.files;
     CREATE OR REPLACE VIEW local_ega.files AS
     SELECT id,
        submission_user                          AS elixir_id,
@@ -39,6 +40,7 @@ BEGIN
        last_modified
      FROM local_ega.main;
 
+     DROP VIEW IF EXISTS local_ega_ebi.file;
      CREATE OR REPLACE VIEW local_ega_ebi.file AS
      SELECT stable_id                                AS file_id,
             archive_file_reference                   AS file_name,
