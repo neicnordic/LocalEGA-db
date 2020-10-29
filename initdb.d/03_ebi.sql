@@ -9,10 +9,13 @@ SELECT stable_id                                AS file_id,
        archive_file_reference                   AS file_path,
        reverse(split_part(reverse(submission_file_path::text), '/'::text, 1)) AS display_file_name,
        archive_file_size                        AS file_size,
+       archive_file_size                        AS archive_file_size,
        NULL::text                               AS checksum,
        NULL::text                               AS checksum_type,
-       archive_file_checksum                    AS unencrypted_checksum,
-       archive_file_checksum_type               AS unencrypted_checksum_type,
+       NULL::text                               AS unencrypted_checksum,
+       NULL::text                               AS unencrypted_checksum_type,
+       archive_file_checksum                    AS archive_file_checksum,
+       archive_file_checksum_type               AS archive_file_checksum_type,
        decrypted_file_size			AS decrypted_file_size,
        decrypted_file_checksum			AS decrypted_file_checksum,
        decrypted_file_checksum_type		AS decrypted_file_checksum_type,
@@ -25,7 +28,8 @@ WHERE status = 'READY';
 CREATE TABLE local_ega_ebi.filedataset (
        id       SERIAL, PRIMARY KEY(id), UNIQUE (id),
        file_id     INTEGER NOT NULL REFERENCES local_ega.main (id) ON DELETE CASCADE, -- not stable_id
-       dataset_stable_id  TEXT NOT NULL
+       dataset_stable_id  TEXT NOT NULL,
+       UNIQUE(file_id, dataset_stable_id)
 );
 
 -- This view was created to be in sync with the entity eu.elixir.ega.ebi.downloader.domain.entity.FileDataset
