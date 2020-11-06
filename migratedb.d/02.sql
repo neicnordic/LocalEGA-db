@@ -14,8 +14,9 @@ BEGIN
     RAISE NOTICE 'Changes: %', changes;
     INSERT INTO local_ega.dbschema_version VALUES(sourcever+1, now(), changes);
     ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_checksum VARCHAR(128);
-    ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_checksum_type checksum_algorithm;
+    ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_checksum_type local_ega.checksum_algorithm;
     ALTER TABLE local_ega.main ADD COLUMN IF NOT EXISTS decrypted_file_size BIGINT;
+    DROP VIEW IF EXISTS local_ega.files;
     CREATE OR REPLACE VIEW local_ega.files AS
     SELECT id,
        submission_user                          AS elixir_id,
@@ -39,6 +40,7 @@ BEGIN
        last_modified
      FROM local_ega.main;
 
+     DROP VIEW IF EXISTS local_ega_ebi.file;
      CREATE OR REPLACE VIEW local_ega_ebi.file AS
      SELECT stable_id                                AS file_id,
             archive_file_reference                   AS file_name,
@@ -54,8 +56,23 @@ BEGIN
             decrypted_file_checksum_type             AS decrypted_file_checksum_type,
             status                                   AS file_status,
             header                                   AS header
-FROM local_ega.main
-WHERE status = 'READY';
+     FROM local_ega.main
+     WHERE status = 'READY';
+
+     GRANT USAGE ON SCHEMA local_ega TO lega_in, lega_out;
+     GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA local_ega TO lega_in; -- Read/Write access on local_ega.* for lega_in
+     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA local_ega TO lega_in; -- Don't forget the sequences
+     GRANT SELECT ON local_ega.archive_files  TO lega_out;                    -- Read-Only access for lega_out
+
+     -- Set up rights access for audit schema
+     GRANT USAGE ON SCHEMA local_ega_download TO lega_out;
+     GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA local_ega_download TO lega_out; -- Read/Write on audit.* for lega_out
+     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA local_ega_download TO lega_out; -- Don't forget the sequences
+
+     -- Set up rights access for local_ega_ebi schema
+     GRANT USAGE ON SCHEMA local_ega_ebi TO lega_out;
+     GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA local_ega_ebi TO lega_out;
+     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA local_ega_ebi TO lega_out;
 
   ELSE
     RAISE NOTICE 'Schema migration from % to % does not apply now, skipping', sourcever, sourcever+1;
